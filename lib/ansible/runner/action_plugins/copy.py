@@ -53,6 +53,7 @@ class ActionModule(object):
         dest    = options.get('dest', None)
         raw     = utils.boolean(options.get('raw', 'no'))
         force   = utils.boolean(options.get('force', 'yes'))
+        b64_encoded   = utils.boolean(options.get('b64_encoded', 'no'))
 
         # content with newlines is going to be escaped to safely load in yaml
         # now we need to unescape it so that the newlines are evaluated properly
@@ -84,8 +85,20 @@ class ActionModule(object):
             try:
                 # If content comes to us as a dict it should be decoded json.
                 # We need to encode it back into a string to write it out.
+                #
+                # If the b64_encoded flag is set, content needs to be decoded
                 if type(content) is dict:
                     content_tempfile = self._create_content_tempfile(json.dumps(content))
+                elif b64_encoded:
+                    try:
+                        decoded_content = base64.b64decode(content)
+                    except binascii.Error as e:
+                        # Unable to decode base64 content
+                        results = dict(
+                                failed=True,
+                                msg='Error decoding base 64: %s' % e)
+                        return ReturnData(conn=conn, result=results)
+                    content_tempfile = self._create_content_tempfile(decoded_content)
                 else:
                     content_tempfile = self._create_content_tempfile(content)
                 source = content_tempfile
